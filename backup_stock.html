@@ -1,0 +1,1078 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>สต็อกสินค้าสำรองการผลิต | Production Backup Stock</title>
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="config.js"></script>
+    <script src="auth.js"></script>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        /* ── DARK INDUSTRIAL THEME IMPLEMENTATION ──────────────────────────── */
+        :root {
+            --bg-body: #050811;
+            --bg-card: rgba(15, 23, 42, 0.85);
+            --border: rgba(255, 255, 255, 0.08);
+            --primary: #818cf8; /* Sleek indigo for Finished Backup Products */
+            --primary-bright: #a5b4fc;
+            --primary-glow: rgba(129, 140, 248, 0.25);
+            --green: #10b981;
+            --green-glow: rgba(16, 185, 129, 0.25);
+            --red: #ef4444;
+            --blue: #3b82f6;
+            --orange: #f97316;
+            --text: #ffffff;
+            --muted: #94a3b8;
+        }
+
+        body {
+            background: var(--bg-body) !important;
+            color: var(--text) !important;
+            min-height: 100vh;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background:
+                radial-gradient(circle at 10% 10%, rgba(129, 140, 248, 0.08) 0%, transparent 40%),
+                radial-gradient(circle at 90% 90%, rgba(16, 185, 129, 0.06) 0%, transparent 40%),
+                radial-gradient(circle at 50% 50%, rgba(31, 41, 55, 1) 0%, var(--bg-body) 100%);
+            z-index: -1;
+            pointer-events: none;
+        }
+
+        .page-wrapper {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 1.5rem 2rem;
+        }
+
+        /* ── HEADER ── */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 2rem;
+            gap: 1.5rem;
+            flex-wrap: wrap;
+            background: rgba(15, 23, 42, 0.4);
+            padding: 1.5rem;
+            border-radius: 20px;
+            border: 1px solid var(--border);
+            backdrop-filter: blur(8px);
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            flex: 1;
+            min-width: 280px;
+        }
+
+        .header-icon {
+            width: 52px;
+            height: 52px;
+            border-radius: 14px;
+            background: linear-gradient(135deg, var(--primary), #4f46e5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.6rem;
+            box-shadow: 0 8px 20px var(--primary-glow);
+        }
+
+        .header-left h1 {
+            font-size: 1.6rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--primary-bright), #ffffff);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent !important;
+            margin: 0;
+            display: block;
+        }
+
+        .header-left p {
+            color: var(--muted) !important;
+            font-size: 0.82rem;
+            margin-top: 1px;
+        }
+
+        .header-right {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 12px;
+        }
+
+        .header-group {
+            display: flex;
+            align-items: center;
+            gap: 0.7rem;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+        }
+
+        .management-container {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 2rem;
+            backdrop-filter: blur(12px);
+            margin-top: 1rem;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        /* Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 1.25rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.25rem 1.5rem;
+            text-align: center;
+            box-shadow: none;
+            transition: all 0.3s;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-2px);
+            border-color: rgba(129, 140, 248, 0.4);
+            box-shadow: 0 8px 20px rgba(129, 140, 248, 0.1);
+        }
+
+        .stat-card h3 {
+            margin: 0 0 0.4rem;
+            color: var(--muted);
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+
+        .stat-card .value {
+            color: var(--primary-bright);
+            font-size: 2.2rem;
+            font-weight: 700;
+            line-height: 1;
+        }
+
+        .stat-card.danger {
+            background: rgba(239, 68, 68, 0.05);
+            border-color: rgba(239, 68, 68, 0.2);
+        }
+        
+        .stat-card.danger .value {
+            color: var(--red);
+        }
+
+        .stat-card.danger.selected {
+            background: rgba(239, 68, 68, 0.15) !important;
+            border-color: var(--red) !important;
+            box-shadow: 0 0 15px rgba(239, 68, 68, 0.25) !important;
+            transform: translateY(-2px);
+        }
+
+        /* Toolbar */
+        .toolbar {
+            display: flex;
+            gap: 0.75rem;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .approval-panel {
+            margin-bottom: 1.5rem;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 1.25rem;
+        }
+
+        .approval-panel h3 {
+            margin: 0 0 0.35rem;
+            font-size: 1rem;
+            color: var(--primary-bright);
+        }
+
+        .approval-panel p {
+            margin: 0;
+            color: var(--muted);
+            font-size: 0.9rem;
+        }
+
+        .approval-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 1rem;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .approval-table th,
+        .approval-table td {
+            padding: 0.8rem 0.9rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .approval-table th {
+            color: var(--muted);
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        .btn-approve {
+            padding: 0.45rem 0.9rem;
+            border-radius: 8px;
+            border: 1px solid transparent;
+            background: linear-gradient(135deg, #4f46e5, #6366f1);
+            color: white;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 0.85rem;
+        }
+
+        .btn-approve:disabled {
+            opacity: 0.45;
+            cursor: not-allowed;
+        }
+
+        .btn-approve:hover:not(:disabled) {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 18px rgba(99, 102, 241, 0.18);
+        }
+
+        .search-input {
+            flex: 1;
+            min-width: 220px;
+            padding: 0.65rem 1rem;
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text);
+            font-size: 0.9rem;
+            transition: all 0.2s;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px var(--primary-glow);
+        }
+
+        .btn {
+            padding: 0.55rem 1.2rem;
+            border-radius: 8px;
+            font-family: 'Kanit', sans-serif;
+            font-size: 0.9rem;
+            cursor: pointer;
+            border: 1px solid transparent;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+
+        .btn-add {
+            background: linear-gradient(135deg, var(--primary), #4f46e5);
+            color: white;
+            box-shadow: 0 4px 12px var(--primary-glow);
+            font-weight: 500;
+        }
+
+        .btn-add:hover {
+            transform: translateY(-1px);
+        }
+
+        .btn-refresh {
+            background: var(--bg-card);
+            color: var(--muted);
+            border: 1px solid var(--border);
+        }
+
+        .btn-refresh:hover {
+            border-color: var(--primary);
+            color: var(--primary-bright);
+        }
+
+        /* Table */
+        .table-card {
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            overflow: hidden;
+            box-shadow: none;
+            backdrop-filter: none;
+        }
+
+        .table-responsive { overflow-x: auto; }
+
+        .stock-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .stock-table thead tr {
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .stock-table th {
+            padding: 0.95rem 1rem;
+            text-align: left;
+            font-size: 0.8rem;
+            color: var(--muted);
+            text-transform: none;
+            letter-spacing: normal;
+            border-bottom: 1px solid var(--border);
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        .stock-table th[data-sort] {
+            cursor: pointer;
+            user-select: none;
+            transition: color 0.2s;
+        }
+
+        .stock-table th[data-sort]:hover {
+            color: var(--primary-bright);
+        }
+
+        .sort-icon { font-size: 0.7rem; opacity: 0.6; }
+
+        .stock-table td {
+            padding: 0.95rem 1rem;
+            border-bottom: 1px solid var(--border);
+            color: var(--text);
+            font-size: 0.92rem;
+            vertical-align: middle;
+        }
+        
+        .stock-table tr:hover td {
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .stock-table tr.row-low td {
+            background: rgba(239, 68, 68, 0.05);
+        }
+        
+        .stock-table tr.row-low:hover td {
+            background: rgba(239, 68, 68, 0.1);
+        }
+
+        .product-name {
+            font-weight: 500;
+            color: var(--text);
+        }
+
+        .product-code {
+            font-size: 0.78rem;
+            color: var(--muted);
+            font-family: monospace;
+            margin-top: 2px;
+        }
+
+        /* Quantity controls and inputs */
+        .qty-container {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .qty-value {
+            font-size: 1.05rem;
+            font-weight: 700;
+        }
+
+        .qty-ok {
+            color: var(--green);
+        }
+
+        .qty-low {
+            color: var(--red);
+        }
+
+        .quick-qty-input {
+            width: 60px;
+            padding: 0.3rem 0.4rem;
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--text);
+            font-size: 0.85rem;
+            text-align: center;
+            transition: all 0.2s;
+        }
+
+        .quick-qty-input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 10px var(--primary-glow);
+        }
+
+        /* Badges */
+        .badge-ok, .badge-low {
+            display: inline-block;
+            padding: 2px 10px;
+            border-radius: 20px;
+            font-size: 0.76rem;
+            font-weight: 500;
+        }
+
+        .badge-ok {
+            background: rgba(16, 185, 129, 0.12);
+            border: 1px solid rgba(16, 185, 129, 0.25);
+            color: #34d399;
+        }
+
+        .badge-low {
+            background: rgba(239, 68, 68, 0.12);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            color: #f87171;
+        }
+
+        /* Actions */
+        .action-btns { display: flex; gap: 0.4rem; }
+
+        .action-btn {
+            width: 32px;
+            height: 32px;
+            border-radius: 6px;
+            border: 1px solid transparent;
+            cursor: pointer;
+            font-size: 0.82rem;
+            transition: all 0.15s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .action-btn-edit {
+            background: rgba(129, 140, 248, 0.12);
+            border-color: rgba(129, 140, 248, 0.25);
+            color: #a5b4fc;
+        }
+
+        .action-btn-edit:hover { background: rgba(129, 140, 248, 0.25); }
+
+        /* ── MODAL ───────────────────────────────── */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(5, 8, 17, 0.8);
+            backdrop-filter: blur(8px);
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+        }
+
+        .modal.active {
+            display: flex;
+            opacity: 1;
+        }
+
+        .modal-content {
+            background: var(--bg-card);
+            color: var(--text);
+            border: 1px solid var(--border);
+            border-radius: 18px;
+            width: 92%;
+            max-width: 480px;
+            padding: 1.75rem;
+            animation: modalSlide 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5);
+        }
+
+        @keyframes modalSlide {
+            from { transform: translateY(15px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.25rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .modal-header h2 {
+            margin: 0;
+            font-size: 1.25rem;
+            color: var(--primary-bright);
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            color: var(--muted);
+            font-size: 1.30rem;
+            cursor: pointer;
+            line-height: 1;
+            padding: 0.2rem 0.4rem;
+            border-radius: 4px;
+            transition: color 0.2s;
+        }
+
+        .close-btn:hover { color: var(--text); }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.75rem;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.35rem;
+            margin-bottom: 1rem;
+        }
+
+        .form-group label {
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: var(--muted);
+        }
+
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 0.6rem 0.85rem;
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text);
+            font-family: 'Kanit', sans-serif;
+            font-size: 0.95rem;
+            transition: all 0.2s;
+        }
+
+        .form-group input:focus, .form-group select:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 10px var(--primary-glow);
+        }
+        
+        .form-group select option {
+            background: #1e293b;
+            color: var(--text);
+        }
+        
+        /* ── ADJUST PANEL ──────────────────────── */
+        .current-qty-box {
+            background: rgba(129, 140, 248, 0.05);
+            border: 1px solid rgba(129, 140, 248, 0.2);
+            border-radius: 10px;
+            padding: 1rem 1.25rem;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .current-qty-label { color: var(--muted); font-size: 0.82rem; }
+        .current-qty-value { font-size: 1.6rem; font-weight: 700; color: var(--primary-bright); }
+        .current-qty-unit  { color: var(--muted); font-size: 0.78rem; }
+
+        .adjust-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+        }
+
+        .adjust-btn {
+            padding: 0.65rem;
+            border-radius: 9px;
+            font-family: 'Kanit', sans-serif;
+            font-size: 0.9rem;
+            font-weight: 500;
+            cursor: pointer;
+            border: 1px solid transparent;
+            transition: all 0.2s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.25rem;
+        }
+
+        .adjust-btn .adj-icon { font-size: 1.3rem; }
+        .adjust-btn .adj-label { font-size: 0.75rem; opacity: 0.75; }
+
+        .adjust-btn.receive  {
+            background: rgba(16, 185, 129, 0.12);
+            border-color: rgba(16, 185, 129, 0.25);
+            color: #34d399;
+        }
+
+        .adjust-btn.receive:hover  { background: rgba(16, 185, 129, 0.22); }
+
+        .adjust-btn.issue {
+            background: rgba(239, 68, 68, 0.1);
+            border-color: rgba(239, 68, 68, 0.25);
+            color: #f87171;
+        }
+
+        .adjust-btn.issue:hover { background: rgba(239, 68, 68, 0.20); }
+
+        .adjust-btn.selected {
+            outline: 2px solid currentColor;
+            outline-offset: 1px;
+        }
+
+        .qty-delta-input {
+            width: 100%;
+            padding: 0.6rem 0.8rem;
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid var(--border);
+            border-radius: 7px;
+            color: var(--text);
+            font-family: 'Kanit', sans-serif;
+            font-size: 1.15rem;
+            font-weight: 700;
+            text-align: center;
+            transition: all 0.2s;
+        }
+
+        .qty-delta-input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 10px var(--primary-glow);
+        }
+
+        .checkbox-container {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-top: 5px;
+            background: rgba(99, 102, 241, 0.05);
+            border: 1px solid rgba(99, 102, 241, 0.15);
+            padding: 0.6rem 0.85rem;
+            border-radius: 8px;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .checkbox-container input {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+            accent-color: var(--primary);
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 0.75rem;
+            margin-top: 1.5rem;
+            justify-content: flex-end;
+            padding-top: 0.75rem;
+            border-top: 1px solid var(--border);
+        }
+
+        .btn-cancel {
+            background: rgba(255, 255, 255, 0.05);
+            border-color: rgba(255, 255, 255, 0.1);
+            color: var(--muted);
+        }
+
+        .btn-cancel:hover { background: rgba(255, 255, 255, 0.1); color: var(--text); }
+
+        .btn-save {
+            background: linear-gradient(135deg, var(--primary), #4f46e5);
+            color: #ffffff;
+            box-shadow: 0 4px 12px var(--primary-glow);
+        }
+
+        .btn-save:hover { transform: translateY(-1px); }
+        .btn-save:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        /* ── EMPTY STATE ─────────────────────────── */
+        .empty-state {
+            text-align: center;
+            padding: 3rem 2rem;
+            color: #475569;
+        }
+
+        .empty-state .icon { font-size: 3rem; margin-bottom: 0.75rem; }
+
+        /* ── TOAST ───────────────────────────────── */
+        #toast {
+            position: fixed;
+            bottom: 1.5rem;
+            right: 1.5rem;
+            padding: 0.75rem 1.25rem;
+            border-radius: 10px;
+            border: 1px solid;
+            font-family: 'Kanit', sans-serif;
+            font-size: 0.9rem;
+            z-index: 9999;
+            transform: translateY(20px);
+            opacity: 0;
+            transition: opacity 0.25s, transform 0.25s;
+            pointer-events: none;
+            max-width: 340px;
+        }
+
+        #toast.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* ── SECTION TABS ────────────────────────── */
+        .section-tabs {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+            border-bottom: 2px solid var(--border);
+            padding-bottom: 0.5rem;
+        }
+
+        .section-tab {
+            background: transparent;
+            border: none;
+            color: var(--muted);
+            font-family: 'Kanit', sans-serif;
+            font-size: 1.05rem;
+            font-weight: 600;
+            padding: 0.75rem 1.5rem;
+            cursor: pointer;
+            border-radius: 8px;
+            transition: all 0.2s ease;
+            position: relative;
+        }
+
+        .section-tab:hover {
+            color: var(--text);
+            background: rgba(255, 255, 255, 0.03);
+        }
+
+        .section-tab.active {
+            color: var(--primary-bright);
+            background: rgba(129, 140, 248, 0.08);
+        }
+
+        .section-tab.active::after {
+            content: '';
+            position: absolute;
+            bottom: -10px;
+            left: 0;
+            width: 100%;
+            height: 3px;
+            background: linear-gradient(90deg, var(--primary), var(--primary-bright));
+            border-radius: 3px;
+            box-shadow: 0 2px 10px var(--primary-glow);
+        }
+
+        .section-panel {
+            animation: fadeIn 0.25s ease-in-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="page-wrapper">
+        <header class="header">
+            <div class="header-left">
+                <div class="header-icon">📦</div>
+                <div>
+                    <h1>สต็อกสินค้าสำรองการผลิต | Backup Stock</h1>
+                    <p>ติดตามและจัดการสินค้าสำเร็จรูปสำรอง หมวดหมู่อลูมิเนียมและกระจกสำเร็จรูป</p>
+                </div>
+            </div>
+            <div class="header-right">
+                <div class="header-group">
+                    <a href="index.html" data-allowed-roles="Admin, Ceo" class="btn btn-outline btn-sm" style="border-color: rgba(99,102,241,0.3); color: #818cf8; text-decoration: none;">
+                        📝 บันทึกออเดอร์
+                    </a>
+                    <a href="material_prep.html" data-allowed-roles="Ceo, APRD" class="btn btn-outline btn-sm" style="border-color: rgba(16,185,129,0.3); color: #34d399; text-decoration: none;">
+                        📋 เตรียมวัสดุ
+                    </a>
+                    <a href="production.html" data-allowed-roles="pdtPerson, Ceo" class="btn btn-outline btn-sm" style="border-color: rgba(245,158,11,0.3); color: #fbbf24; text-decoration: none;">
+                        🏭 ฝ่ายผลิต
+                    </a>
+                    <a href="stock_management.html" data-allowed-roles="Ceo, APRD" class="btn btn-outline btn-sm" style="border-color: rgba(168,85,247,0.3); color: #d8b4fe; text-decoration: none;">
+                        📦 จัดการคลังวัสดุ
+                    </a>
+                    <a href="backup_stock.html" data-allowed-roles="Ceo, APRD, Admin, pdtPerson" class="btn btn-outline btn-sm active" style="background: rgba(129, 140, 248, 0.15); border-color: var(--primary); color: var(--primary-bright); text-decoration: none; font-weight: 600;">
+                        📦 สต็อกสินค้าสำรอง
+                    </a>
+                    <a href="damage_report.html" data-allowed-roles="Ceo" class="btn btn-outline btn-sm" style="border-color: rgba(239,68,68,0.3); color: #f87171; text-decoration: none;">
+                        ⚠️ รายงานวัสดุเสียหาย
+                    </a>
+                </div>
+                <div class="header-group" style="margin-top: 5px;">
+                    <div id="user-display-area" style="font-size: 0.9rem; color: var(--muted); font-weight: 500;"></div>
+                    <button onclick="auth.logout()" class="btn btn-outline btn-sm" style="background: rgba(248,113,113,0.1); border: 1px solid rgba(248,113,113,0.25); color: #f87171; border-radius: 8px;">
+                        🚪 ออกจากระบบ
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <div class="management-container">
+            <!-- Stats -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <h3>📦 ประเภทสินค้าสำรองทั้งหมด</h3>
+                    <div class="value" id="totalItems">—</div>
+                </div>
+                <div class="stat-card danger" id="lowStockCard" style="cursor: pointer; transition: all 0.2s;" onclick="toggleLowStockFilterFromCard()">
+                    <h3>⚠️ สินค้าสำรองต่ำกว่าระดับเตือน</h3>
+                    <div class="value" id="lowStockItems">—</div>
+                </div>
+                <div class="stat-card">
+                    <h3>🔢 จำนวนสินค้าในคลังสำรองรวม</h3>
+                    <div class="value" id="totalValue">—</div>
+                </div>
+            </div>
+
+            <!-- Section Tabs -->
+            <div class="section-tabs">
+                <button class="section-tab active" id="tab-stock" onclick="switchSectionTab('stock')">
+                    📦 รายการสินค้าสำรอง
+                </button>
+                <button class="section-tab" id="tab-logs" onclick="switchSectionTab('logs')">
+                    📜 ประวัติรับเข้า/จ่ายออก
+                </button>
+            </div>
+
+            <!-- TAB 1: สต็อกสินค้าสำรอง -->
+            <div id="panel-stock" class="section-panel">
+                <!-- Toolbar -->
+                <div class="toolbar">
+                    <button class="btn btn-refresh" onclick="refreshBackupStockList()">🔄 รีโหลด</button>
+                    <input type="text" id="searchInput" class="search-input"
+                        placeholder="🔍 ค้นหาชื่อ SKU หรือคำอธิบายสินค้าสำรอง..." onkeyup="searchStocks()">
+                    <label class="filter-low-stock-label" style="display: inline-flex; align-items: center; gap: 0.5rem; cursor: pointer; user-select: none; font-size: 0.9rem; color: #f87171; font-weight: 500; background: rgba(239, 68, 68, 0.08); padding: 0.55rem 1rem; border-radius: 8px; border: 1px solid rgba(239, 68, 68, 0.2); transition: all 0.2s;" id="lowStockLabel">
+                        <input type="checkbox" id="lowStockCheckbox" onchange="toggleLowStockFilter(this.checked)" style="width: 16px; height: 16px; accent-color: var(--red); cursor: pointer;">
+                        ⚠️ แสดงเฉพาะสินค้าต่ำกว่าระดับเตือน
+                    </label>
+                </div>
+
+                <div class="approval-panel" id="approvalSection">
+                    <div class="approval-header">
+                        <div>
+                            <h3>🧾 รายการออเดอร์รออนุมัติใช้งานจากสต็อกสำรอง</h3>
+                            <p>ออเดอร์ที่ยังไม่มีเลขพัสดุและมีสินค้าสำรองในคลัง สามารถอนุมัติให้ใช้สำรองได้ที่นี่</p>
+                        </div>
+                        <button class="btn btn-refresh" onclick="refreshApprovalOrders()">🔄 รีเฟรชรายการอนุมัติ</button>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="stock-table approval-table">
+                            <thead>
+                                <tr>
+                                    <th>เลขออเดอร์</th>
+                                    <th>SKU</th>
+                                    <th>รายการ</th>
+                                    <th style="text-align:right;">จำนวนออเดอร์</th>
+                                    <th style="text-align:right;">สต็อกสำรอง</th>
+                                    <th>สถานะ</th>
+                                    <th>ดำเนินการ</th>
+                                </tr>
+                            </thead>
+                            <tbody id="pendingOrdersBody">
+                                <tr>
+                                    <td colspan="7" style="text-align:center; padding:2rem; color:#64748b;">
+                                        ⏳ กำลังโหลดรายการอนุมัติ...
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Table -->
+                <div class="table-card">
+                    <div class="table-responsive">
+                        <table class="stock-table">
+                            <thead>
+                                <tr>
+                                    <th data-sort="product_code" onclick="sortBy('product_code')">
+                                        รหัส SKU <span class="sort-icon">↕</span>
+                                    </th>
+                                    <th data-sort="product_name" onclick="sortBy('product_name')">
+                                        คำอธิบายรายชื่อสินค้าสำเร็จรูป <span class="sort-icon">↕</span>
+                                    </th>
+                                    <th data-sort="quantity" onclick="sortBy('quantity')" style="text-align: right; padding-right: 2rem;">
+                                        จำนวนสำรองคงเหลือ <span class="sort-icon">↕</span>
+                                    </th>
+                                    <th>หน่วย</th>
+                                    <th>ขนาดสินค้า (กว้างxสูง)</th>
+                                    <th>ระดับแจ้งเตือนต่ำ</th>
+                                    <th>ปรับจำนวน</th>
+                                    <th>สถานะ</th>
+                                </tr>
+                            </thead>
+                            <tbody id="stockTableBody">
+                                <tr>
+                                    <td colspan="8" style="text-align:center; padding:2.5rem; color:#64748b;">
+                                        ⏳ กำลังโหลดข้อมูล...
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div id="emptyState" class="empty-state" style="display:none;">
+                    <div class="icon">📦</div>
+                    <p style="color:#64748b;">ยังไม่มีรายการสินค้าสำรองในระบบ หรือไม่ตรงกับเงื่อนไขการค้นหา</p>
+                </div>
+            </div>
+
+            <!-- TAB 2: ประวัติการเคลื่อนไหว -->
+            <div id="panel-logs" class="section-panel" style="display:none;">
+                <div class="table-card" style="margin-top: 0; padding: 1.5rem;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; border-bottom:1px solid var(--border); padding-bottom:0.75rem; gap: 1rem; flex-wrap: wrap;">
+                        <h3 style="margin:0; font-size:1.1rem; color:var(--primary-bright); white-space: nowrap;">📜 ประวัติการปรับเปลี่ยนสินค้าสำรอง</h3>
+                        <div style="display: flex; gap: 0.5rem; flex: 1; max-width: 700px; justify-content: flex-end; align-items: center; flex-wrap: wrap;">
+                            <input type="text" id="logSearchInput" class="search-input" style="padding: 0.4rem 0.85rem; font-size: 0.85rem; flex: 1.5; min-width: 140px;" placeholder="🔍 ค้นหาสินค้า, ผู้ปฏิบัติการ, เหตุผล..." onkeyup="renderLogs()">
+                            <button class="btn btn-refresh" onclick="loadMovementLogs()" style="padding:0.4rem 1rem; font-size:0.85rem;">🔄 รีเฟรช</button>
+                        </div>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="stock-table">
+                            <thead>
+                                <tr>
+                                    <th>วัน-เวลา</th>
+                                    <th>สินค้า (SKU)</th>
+                                    <th style="text-align:right; padding-right:1.5rem;">จำนวนปรับปรุง</th>
+                                    <th style="text-align:right; padding-right:1.5rem;">คงเหลือล่าสุด</th>
+                                    <th>ผู้ปฏิบัติการ</th>
+                                    <th>เหตุผลการปรับปรุง</th>
+                                </tr>
+                            </thead>
+                            <tbody id="logsTableBody">
+                                <tr><td colspan="6" style="text-align:center; color:var(--muted); padding:2rem;">⏳ กำลังโหลด...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Backup Stock Modal -->
+    <div id="adjustModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>ปรับปรุงจำนวนสต็อกสินค้าสำรอง</h2>
+                <button class="close-btn" onclick="closeModal()">✕</button>
+            </div>
+
+            <form id="adjustForm">
+                <div class="form-group">
+                    <label>รหัส SKU</label>
+                    <input type="text" id="modalProductCode" readonly style="background: rgba(255,255,255,0.03); color: var(--muted); border-color: rgba(255,255,255,0.04);">
+                </div>
+
+                <div class="form-group">
+                    <label>คำอธิบายสินค้าสำเร็จรูป</label>
+                    <input type="text" id="modalProductName" readonly style="background: rgba(255,255,255,0.03); color: var(--muted); border-color: rgba(255,255,255,0.04);">
+                </div>
+
+                <!-- Current quantity stats -->
+                <div class="current-qty-box">
+                    <div>
+                        <div class="current-qty-label">จำนวนสต็อกสำรองปัจจุบัน</div>
+                        <div>
+                            <span class="current-qty-value" id="currentQtyDisplay">—</span>
+                            <span class="current-qty-unit" id="currentQtyUnit"> ชิ้น</span>
+                        </div>
+                    </div>
+                    <div style="font-size:1.5rem;">📦</div>
+                </div>
+
+                <!-- Adjust Mode buttons -->
+                <div class="adjust-row">
+                    <button type="button" class="adjust-btn receive selected" id="btnReceive" onclick="setAdjustMode('receive')">
+                        <span class="adj-icon">📥</span>
+                        <span>รับเข้าสต็อก (เพิ่ม)</span>
+                        <span class="adj-label">เพิ่มสินค้าผลิตเผื่อไว้</span>
+                    </button>
+                    <button type="button" class="adjust-btn issue" id="btnIssue" onclick="setAdjustMode('issue')">
+                        <span class="adj-icon">📤</span>
+                        <span>จ่ายออกสต็อก (ลด)</span>
+                        <span class="adj-label">ดึงสินค้าไปใช้งาน/ขาย</span>
+                    </button>
+                </div>
+
+                <!-- Amount to adjust -->
+                <div class="form-group">
+                    <label id="deltaLabel" for="deltaQty">จำนวนรับเข้าคลัง *</label>
+                    <input type="number" id="deltaQty" class="qty-delta-input" min="1" placeholder="0" required>
+                </div>
+
+                <!-- Warning level / Reorder Point settings -->
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="reorderPoint">ระดับแจ้งเตือน (ต่ำสุด) *</label>
+                        <input type="number" id="reorderPoint" min="0" required placeholder="เช่น 2">
+                    </div>
+                    <div class="form-group">
+                        <label for="unitInput">หน่วยนับ</label>
+                        <input type="text" id="unitInput" placeholder="เช่น ชิ้น">
+                    </div>
+                </div>
+
+                <!-- BOM Deduction Auto checkbox (Only shows in receive mode) -->
+                <div class="form-group" id="bomSection" style="display: none;">
+                    <label class="checkbox-container">
+                        <input type="checkbox" id="chkDeductBom">
+                        <div>
+                            <strong style="color:var(--primary-bright);">⚙️ ตัดยอดวัสดุตามสูตร (BOM) อัตโนมัติ</strong>
+                            <div style="font-size: 0.76rem; color: var(--muted); margin-top: 2px;">
+                                ระบบจะหักล้างกระจก อลูมิเนียม และอะไหล่ในคลังวัสดุตามจำนวนที่เพิ่ม
+                            </div>
+                        </div>
+                    </label>
+                </div>
+
+                <!-- Inputs for actor and notes -->
+                <div class="form-group">
+                    <label for="operatorName">ชื่อผู้ปฏิบัติการ *</label>
+                    <input type="text" id="operatorName" required placeholder="ระบุชื่อของคุณ">
+                </div>
+
+                <div class="form-group">
+                    <label for="reason">บันทึกเพิ่มเติม / เหตุผล</label>
+                    <input type="text" id="reason" placeholder="เช่น ตัวอย่างโชว์, ผลิตเผื่อช่วงโปรโมชั่น">
+                </div>
+
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-cancel" onclick="closeModal()">ยกเลิก</button>
+                    <button type="submit" class="btn btn-save" id="submitBtn">💾 บันทึกการปรับปรุง</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast"></div>
+
+    <script src="backup_stock.js"></script>
+</body>
+</html>
