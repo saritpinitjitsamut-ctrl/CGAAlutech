@@ -431,7 +431,7 @@ async function deductSingleStockForOrder(order) {
         }
 
         if (!stockItem) {
-            throw new Error(`ไม่พบสินค้าในสต็อกสำหรับ ${normalizedProductCode || normalizedProductName}`);
+            throw new Error(`วัสดุในการผลิตไม่เพียงพอ ${normalizedProductCode || normalizedProductName}`);
         }
 
         const currentQty = parseInt(stockItem.quantity) || 0;
