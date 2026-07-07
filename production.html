@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="th">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ฝ่ายผลิต | Production Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- Config (Supabase Keys - gitignored) -->
+    <script src="config.js"></script>
+    <script src="auth.js"></script>
+    <link rel="stylesheet" href="production.css">
+</head>
+
+<body>
+    <div class="page-wrapper">
+
+        <!-- Header -->
+        <div class="header">
+            <div class="header-left">
+                <div class="header-icon">🏭</div>
+                <div>
+                    <h1>ฝ่ายผลิต</h1>
+                    <p id="lastUpdated">กำลังโหลดข้อมูล...</p>
+                    <div
+                        style="display:flex;align-items:center;font-size:0.75rem;color:var(--muted);margin-top:6px;gap:8px;">
+                        <span style="display:flex;align-items:center;">
+                            <span class="realtime-dot off" id="rtDot"></span>
+                            <span id="rtLabel">Realtime...</span>
+                        </span>
+                        <span style="color:rgba(255,255,255,0.1);">|</span>
+                        <button onclick="loadData()"
+                            style="background:none;border:none;color:var(--primary-bright);cursor:pointer;font-family:inherit;font-size:inherit;padding:0;display:flex;align-items:center;gap:3px;">
+                            🔄 รีเฟรช
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="header-right">
+                <!-- Group 1: Navigation & Main Actions -->
+                <div class="header-group">
+                    <a href="dashboard.html" data-allowed-roles="Admin, Ceo" class="btn btn-outline"
+                        style="border-color:rgba(99,102,241,0.3); color:#818cf8;">📊 แดชบอร์ด</a>
+                    <a href="index.html" data-allowed-roles="Admin, Ceo" class="btn btn-outline">← บันทึกออเดอร์</a>
+                    <a href="material_prep.html" data-allowed-roles="Ceo" class="btn btn-outline" style="border-color:rgba(16,185,129,0.35); color:#34d399;">📋 เตรียมวัสดุ</a>
+                    <a href="damage_report.html" data-allowed-roles="Ceo" class="btn btn-outline" style="border-color:rgba(239,68,68,0.3); color:#f87171;">⚠️ วัสดุเสียหาย</a>
+                    <a href="backup_stock.html" data-allowed-roles="Ceo, Admin" class="btn btn-outline" style="border-color:rgba(129,140,248,0.3); color:#a5b4fc;">📦 สต็อกสำรอง</a>
+                    <div class="header-divider"></div>
+                    <a href="production_history.html" data-allowed-roles="Ceo" class="btn btn-outline" title="พิมพ์ประวัติ">🖨️</a>
+
+                </div>
+
+                <!-- Group 2: User Profile & Logout -->
+                <div class="header-group">
+                    <div id="user-display-area"></div>
+                    <button onclick="auth.logout()"
+                        style="padding: 0.45rem 1rem; background: rgba(248,113,113,0.08); border: 1px solid rgba(248,113,113,0.2); color: #f87171; border-radius: 9px; cursor: pointer; font-family: 'Kanit'; font-size: 0.8rem; transition: all 0.2s; font-weight: 500; display:flex; align-items:center; gap:4px;"
+                        onmouseover="this.style.background='rgba(248,113,113,0.15)'"
+                        onmouseout="this.style.background='rgba(248,113,113,0.08)'">
+                        🚪 ออกจากระบบ
+                    </button>
+                </div>
+            </div>
+        </div>
+
+
+        <!-- Log -->
+        <div class="log-bar" id="logBar">⏳ กำลังเริ่มต้นระบบ...</div>
+
+        <!-- Filter -->
+        <div class="filter-bar">
+            <div class="filter-group">
+                <label>แพลตฟอร์ม</label>
+                <select id="filterPlatform" onchange="applyFilters()">
+                    <option value="">ทั้งหมด</option>
+                    <option value="Shopee">Shopee</option>
+                    <option value="Lazada">Lazada</option>
+                    <option value="TikTok">TikTok</option>
+                    <option value="รถคอก">รถคอก</option>
+                    <option value="Other">อื่นๆ</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label>วันที่สั่งซื้อ (จาก)</label>
+                <input type="date" id="filterDateFrom" onchange="applyFilters()">
+            </div>
+            <div class="filter-group">
+                <label>วันที่สั่งซื้อ (ถึง)</label>
+                <input type="date" id="filterDateTo" onchange="applyFilters()">
+            </div>
+            <div class="filter-group">
+                <label style="color:#34d399;">วันที่ผลิตสำเร็จ</label>
+                <input type="date" id="filterCompletedDate" onchange="applyFilters()">
+            </div>
+            <div style="margin-left:auto;margin-top:auto; display:flex; gap:0.5rem;">
+                <button class="btn btn-outline" style="color:var(--primary-bright); border-color:var(--primary);"
+                    onclick="window.print()">🖨️ พิมพ์รายการปัจจุบัน</button>
+                <button class="btn btn-outline" onclick="clearFilters()">ล้างตัวกรอง</button>
+            </div>
+        </div>
+
+        <!-- KPI -->
+        <div class="kpi-grid">
+            <div class="kpi-card yellow">
+                <div class="kpi-icon">📦</div>
+                <div class="kpi-label">รอผลิต</div>
+                <div class="kpi-value" id="kpiPending">-</div>
+            </div>
+            <div class="kpi-card orange">
+                <div class="kpi-icon">🔨</div>
+                <div class="kpi-label">กำลังผลิต</div>
+                <div class="kpi-value" id="kpiProducing">-</div>
+            </div>
+            <div class="kpi-card green">
+                <div class="kpi-icon">✅</div>
+                <div class="kpi-label">ผลิตสำเร็จแล้ว</div>
+                <div class="kpi-value" id="kpiDone">-</div>
+            </div>
+            <div class="kpi-card blue">
+                <div class="kpi-icon">🔢</div>
+                <div class="kpi-label">ชิ้นรวมรอผลิต+กำลังผลิต</div>
+                <div class="kpi-value" id="kpiQty">-</div>
+            </div>
+        </div>
+
+        <!-- Production Summary Panel -->
+        <div class="panel">
+            <div class="panel-header">
+                <div>
+                    <h2>📋 สรุปยอดการผลิต <span id="summaryCount"
+                            style="color:var(--muted);font-weight:400;font-size:0.85rem;"></span></h2>
+                    <div style="color:var(--muted);font-size:0.8rem;margin-top:2px;">รวมออเดอร์ "รอผลิต" + "กำลังผลิต" •
+                        จัดกลุ่มตามสินค้า</div>
+                </div>
+                <button class="btn btn-primary btn-sm" onclick="openSummaryModal()">📋 Copy</button>
+            </div>
+            <div class="summary-table-wrap">
+                <table class="summary-table">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>SKU / ชื่อสินค้า</th>
+                            <th>ไซส์</th>
+                            <th>ลาย</th>
+                            <th>ช่อง</th>
+                            <th>สีอลู</th>
+                            <th>กระจก</th>
+                            <th>มุ้ง</th>
+                            <th>จำนวนรวม</th>
+                            <th>ออเดอร์</th>
+                        </tr>
+                    </thead>
+                    <tbody id="summaryTableBody">
+                        <tr>
+                            <td colspan="10" style="text-align:center;padding:2rem;color:var(--muted);">
+                                <div class="spinner"></div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Tab Nav -->
+        <div class="tab-nav">
+            <button class="tab-btn active-pending" id="tab-pending" onclick="switchTab('pending')">
+                ⏳ รอผลิต <span class="tab-count" id="tc-pending">0</span>
+            </button>
+            <button class="tab-btn" id="tab-producing" onclick="switchTab('producing')">
+                🔨 กำลังผลิต <span class="tab-count" id="tc-producing">0</span>
+            </button>
+            <button class="tab-btn" id="tab-done" onclick="switchTab('done')">
+                ✅ ผลิตสำเร็จแล้ว <span class="tab-count" id="tc-done">0</span>
+            </button>
+        </div>
+
+        <!-- Orders Panel -->
+        <div class="panel">
+            <div class="panel-header">
+                <h2 id="panelTitle">📦 รายการออเดอร์รอผลิต</h2>
+                <input type="text" id="searchInput" placeholder="🔍 ค้นหาสินค้า, SKU, ผู้ซื้อ..."
+                    oninput="renderCards()"
+                    style="font-family:'Kanit',sans-serif;background:rgba(15,23,42,0.5);border:1px solid var(--border);color:var(--text);padding:0.5rem 1rem;border-radius:10px;font-size:0.85rem;width:240px;">
+            </div>
+            <div id="ordersContainer">
+                <div class="empty-state">
+                    <div class="spinner"></div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Summary Modal -->
+    <div class="modal-overlay" id="summaryModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 style="color:var(--primary-bright);">📋 สรุปการผลิต</h3>
+                <button onclick="closeSummaryModal()"
+                    style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:1.2rem;">✕</button>
+            </div>
+            <div class="copy-area" id="summaryText"></div>
+            <div class="modal-actions">
+                <button class="btn btn-outline" onclick="closeSummaryModal()">ปิด</button>
+                <button class="btn btn-done" onclick="doCopy()">📋 คัดลอก</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- History Modal -->
+    <div class="modal-overlay" id="historyModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 style="color:var(--primary-bright);">📜 ประวัติการผลิต</h3>
+                <button onclick="closeHistoryModal()"
+                    style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:1.2rem;">✕</button>
+            </div>
+            <div class="copy-area" id="historyContent" style="max-height: 400px; font-family: 'Kanit', sans-serif;">
+                <div class="empty-state">
+                    <div class="spinner"></div>
+                    <p>กำลังโหลด...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Components Modal (for BOM confirmation) -->
+    <div class="modal-overlay" id="componentsModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 style="color:var(--primary-bright);">🧩 ส่วนประกอบที่จะตัดสต็อก</h3>
+                <button class="close-modal" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:1.2rem;">✕</button>
+            </div>
+            <div class="copy-area" id="componentsList" style="max-height:320px;">
+                <!-- populated dynamically -->
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-outline cancel-modal">ยกเลิก</button>
+                <button class="btn btn-done" id="componentsConfirmBtn">ยืนยันและตัดสต็อก</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Damage Report Modal -->
+    <div class="modal-overlay" id="damageModal" style="display:none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 style="color:#f87171;">⚠️ รายงานวัสดุเสียหาย</h3>
+                <button onclick="closeDamageModal()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:1.2rem;">✕</button>
+            </div>
+            <div style="padding:0 0 1rem 0;">
+                <div id="damageOrderInfo" style="font-size:0.85rem;color:var(--muted);margin-bottom:1rem;padding:0.6rem 0.8rem;background:rgba(248,113,113,0.08);border:1px solid rgba(248,113,113,0.2);border-radius:8px;"></div>
+                <label style="font-size:0.85rem;color:var(--muted);display:block;margin-bottom:0.4rem;">ชิ้นส่วนที่เสียหาย <span style="color:#ef4444;">*</span></label>
+                <select id="damageItemSelect" style="width:100%;padding:0.55rem 0.8rem;background:rgba(15,23,42,0.8);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'Kanit',sans-serif;font-size:0.9rem;margin-bottom:0.8rem;">
+                    <option value="">-- กำลังโหลด... --</option>
+                </select>
+                <label style="font-size:0.85rem;color:var(--muted);display:block;margin-bottom:0.4rem;">จำนวนที่เสียหาย <span style="color:#ef4444;">*</span></label>
+                <input type="number" id="damageQty" min="1" value="1" style="width:100%;padding:0.55rem 0.8rem;background:rgba(15,23,42,0.8);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'Kanit',sans-serif;font-size:0.9rem;box-sizing:border-box;margin-bottom:0.8rem;">
+                <label style="font-size:0.85rem;color:var(--muted);display:block;margin-bottom:0.4rem;">เหตุผล / หมายเหตุ <span style="color:#ef4444;">*</span></label>
+                <input type="text" id="damageReason" placeholder="เช่น กระจกแตก, อลูมิเนียมงอ" style="width:100%;padding:0.55rem 0.8rem;background:rgba(15,23,42,0.8);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'Kanit',sans-serif;font-size:0.9rem;box-sizing:border-box;margin-bottom:0.8rem;">
+                <label style="font-size:0.85rem;color:var(--muted);display:block;margin-bottom:0.4rem;">ชื่อฝ่ายผลิต (ผู้รายงาน) <span style="color:#ef4444;">*</span></label>
+                <input type="text" id="damageReporterName" placeholder="ระบุชื่อผู้รายงาน..." autocomplete="off" style="width:100%;padding:0.55rem 0.8rem;background:rgba(15,23,42,0.8);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'Kanit',sans-serif;font-size:0.9rem;box-sizing:border-box;">
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-outline" onclick="closeDamageModal()">ยกเลิก</button>
+                <button class="btn" style="background:rgba(239,68,68,0.18);border:1px solid rgba(239,68,68,0.4);color:#f87171;" onclick="submitDamageReport()">⚠️ ยืนยันวัสดุเสียหาย</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="production.js"></script>
+</body>
+
+</html>
