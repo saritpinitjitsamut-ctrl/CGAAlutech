@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>จัดการ BOM | Stock Record</title>
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="config.js"></script>
+    <script src="auth.js"></script>
+    <link rel="stylesheet" href="theme.css">
+    <link rel="stylesheet" href="stock_bom_manage.css">
+    <script src="theme.js" defer></script>
+</head>
+<body>
+    <div class="page-shell">
+        <header class="page-header">
+            <div class="header-top">
+                <a href="index.html" class="back-link">← กลับหน้าหลัก</a>
+                <button class="theme-toggle-button" id="themeToggleBtn" type="button">🌙 โหมดมืด</button>
+            </div>
+            <div class="header-content">
+                <div class="logo-badge">🧩</div>
+                <div>
+                    <h1>จัดการ BOM</h1>
+                    <p>เพิ่ม แก้ไข และลบสูตร BOM สำหรับสินค้าหลักและชิ้นส่วน</p>
+                </div>
+            </div>
+        </header>
+
+        <main class="card">
+            <div class="toolbar">
+                <input id="bomSearch" class="search-input" type="text" placeholder="ค้นหา SKU หลัก หรือ SKU ชิ้นส่วน">
+                <button id="refreshBtn" class="btn btn-outline" type="button">รีเฟรช</button>
+            </div>
+
+            <div id="formStatus" class="status-message" role="status" aria-live="polite"></div>
+
+            <div class="layout-grid">
+                <section class="panel list-panel">
+                    <div class="panel-header">
+                        <div>
+                            <h2>รายการ BOM</h2>
+                            <p>คลิกที่แถวเพื่อแก้ไขจำนวนหรือจะลบ</p>
+                        </div>
+                        <span id="bomCount" class="count-badge">0 รายการ</span>
+                    </div>
+                    <div class="table-wrapper">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>SKU หลัก</th>
+                                    <th>SKU ชิ้นส่วน</th>
+                                    <th>ชื่อชิ้นส่วน</th>
+                                    <th>จำนวน</th>
+                                </tr>
+                            </thead>
+                            <tbody id="bomTableBody">
+                                <tr>
+                                    <td colspan="4" class="empty-state">กำลังโหลด BOM...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <section class="panel form-panel">
+                    <div class="panel-header">
+                        <div>
+                            <h2>รายละเอียด BOM</h2>
+                            <p>กรอกข้อมูลแล้วบันทึกเพื่อเพิ่มหรืออัปเดท</p>
+                        </div>
+                    </div>
+                    <form id="bomForm" class="bom-form">
+                        <div class="input-group autocomplete-group">
+                            <label for="bomParentSku">SKU หลัก</label>
+                            <div class="autocomplete">
+                                <input id="bomParentSku" name="bomParentSku" type="text" autocomplete="off" placeholder="เช่น SLD2P1520BBNL5">
+                                <div id="bomParentSuggestions" class="autocomplete-suggestions"></div>
+                            </div>
+                        </div>
+                        <div class="input-group">
+                            <label for="componentsList">รายการชิ้นส่วน</label>
+                            <div id="componentsList" class="components-list">
+                                <!-- component rows injected here -->
+                            </div>
+                        </div>
+                        <div class="input-group" style="margin-top:8px; margin-bottom:8px;">
+                            <button type="button" class="btn btn-outline" id="addComponentBtn">➕ เพิ่มชิ้นส่วน</button>
+                        </div>
+                        <div class="form-actions">
+                            <button type="submit" class="btn btn-primary" id="saveBomBtn">💾 บันทึก BOM</button>
+                            <button type="button" class="btn btn-outline" id="deleteBomBtn">🗑️ ลบ BOM</button>
+                            <button type="button" class="btn btn-secondary" id="clearBomBtn">ล้างฟอร์ม</button>
+                        </div>
+                    </form>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <script src="stock_bom_manage.js?v=20260710-2"></script>
+</body>
+</html>
